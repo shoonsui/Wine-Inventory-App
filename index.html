@@ -6,17 +6,32 @@
   <title>Wine Inventory</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 p-4">
-  <h1 class="text-2xl font-bold mb-4">Wine Inventory</h1>
+<body class="bg-gray-50">
+  <div class="min-h-screen p-4 flex flex-col items-center">
+    <!-- Header -->
+    <header class="w-full max-w-3xl mb-6 text-center">
+      <h1 class="text-3xl font-bold text-gray-800">Wine Inventory</h1>
+      <p class="text-gray-600 mt-1">Search by Wine Name or Producer</p>
+    </header>
 
-  <!-- Search bar -->
-  <input id="search" type="text" placeholder="Search by Wine Name" class="border p-2 w-full mb-4 rounded">
+    <!-- Search Bar -->
+    <div class="w-full max-w-3xl mb-6">
+      <input
+        id="search"
+        type="text"
+        placeholder="Type wine name or producer..."
+        class="w-full p-3 rounded-lg shadow-sm border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+      />
+    </div>
 
-  <!-- Container for wine cards -->
-  <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    <!-- Cards Container -->
+    <div id="cards" class="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- JS will inject wine cards here -->
+    </div>
+  </div>
 
    <script>
-const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-A6rGvaoyKbrYLSUha23bLWcucC4VnT9DW5YF2OuedUJBuQpGpjZ2r6rjY0bl8Q/pubhtml'; // replace with your CSV URL
+const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-A6rGvaoyKbrYLSUha23bLWcucC4VnT9DW5YF2OuedUJBuQpGpjZ2r6rjY0bl8Q/pub?output=csv'; // replace with your CSV URL
 
 let wines = []; // store all wine data globally
 
