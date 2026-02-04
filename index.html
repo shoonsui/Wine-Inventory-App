@@ -356,6 +356,10 @@ const tabSearch = qs("tabSearch");
 const tabAll = qs("tabAll");
 const tabConf = qs("tabConflicts");
 
+  const zoneSelect = qs("zoneSelect");
+const subzoneSelect = qs("subzoneSelect");
+const slotContainer = qs("slotContainer");
+const addLocationBtn = qs("addLocationBtn");
 const searchBarWrap = qs("searchBarWrap");
 const searchResults = qs("searchResults");
 const allWrap = qs("allWrap");
@@ -668,10 +672,7 @@ function renderDraftPills(){
   });
 }
 
-const zoneSelect = qs("zoneSelect");
-const subzoneSelect = qs("subzoneSelect");
-const slotContainer = qs("slotContainer");
-const addLocationBtn = qs("addLocationBtn");
+
 
 function resetSelectorUI(){
   zoneSelect.innerHTML = "";
