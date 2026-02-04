@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wine Inventory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body{
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(37, 99, 235, .22), transparent 60%),
+        radial-gradient(1000px 500px at 80% 10%, rgba(56, 189, 248, .16), transparent 55%),
+        linear-gradient(180deg, #0b1220, #050814);
+    }
+    .tab-active{ background: rgba(59,130,246,.22); border-color: rgba(59,130,246,.55); }
+    .pill{
+      border-radius: 999px;
+      padding: .7rem 1.0rem;
+      font-weight: 800;
+      line-height: 1.15;
+      white-space: normal;
+      word-break: break-word;
+    }
+    .pill-fridge{ background: rgba(59,130,246,.25); border: 1px solid rgba(59,130,246,.55); }
+    .pill-rack{ background: rgba(148,163,184,.18); border: 1px solid rgba(148,163,184,.35); }
+    .pill-custom{ background: rgba(14,165,233,.16); border: 1px solid rgba(14,165,233,.30); }
+    .pill-warn{ background: rgba(250,204,21,.18); border: 1px solid rgba(250,204,21,.45); }
+    .pill-bad{ background: rgba(220,38,38,.18); border: 1px solid rgba(220,38,38,.55); }
+
+    /* Modal: bottom sheet on mobile, centered panel on desktop */
+    #modalSheet{ transform: translateY(110%); transition: transform .26s ease; }
+    #modalWrap.show #modalSheet{ transform: translateY(0); }
+    @media (min-width: 900px){
+      #modalSheet{
+        width: 880px; max-width: calc(100vw - 64px);
+        border-radius: 18px;
+        margin: 5vh auto 0 auto;
+        max-height: 88vh;
+        transform: translateY(0);
+      }
+      #modalWrap.show #modalSheet{ transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body class="text-slate-100 min-h-screen flex flex-col items-center">
+
+  <div class="w-full max-w-3xl px-4 pt-6">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight">Wine Inventory</h1>
+        <p class="text-slate-400 text-sm mt-0.5">Storage-first lookup + edits</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="addWineBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg text-sm font-semibold">
+          Add Wine
+        </button>
+        <button id="challengeBtn" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-sm font-semibold">
+          Challenge
+        </button>
+      </div>
+    </div>
+
+    <div class="flex gap-2 mt-4">
+      <button id="tabSearch" class="flex-1 border border-slate-700 rounded-lg px-3 py-2 text-sm tab-active">Search</button>
+      <button id="tabAll" class="flex-1 border border-slate-700 rounded-lg px-3 py-2 text-sm">All Wines</button>
+      <button id="tabConflicts" class="flex-1 border border-slate-700 rounded-lg px-3 py-2 text-sm">Conflicts</button>
+    </div>
+
+    <div id="searchBarWrap" class="mt-4">
+      <input id="searchInput" placeholder="Search wine or producer..."
+        class="w-full p-3 rounded-lg bg-slate-900/70 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <p class="text-xs text-slate-500 mt-2">No cards show until you type.</p>
+    </div>
+  </div>
+
+  <!-- Search results cards -->
+  <div id="searchResults" class="w-full max-w-3xl px-4 mt-5 space-y-3"></div>
+
+  <!-- All wines table -->
+  <div id="allWrap" class="w-full max-w-5xl px-4 mt-5 hidden">
+    <div class="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-800/60 text-slate-200">
+            <tr>
+              <th class="text-left p-3">Wine</th>
+              <th class="text-left p-3">Producer</th>
+              <th class="text-left p-3">Vintage</th>
+              <th class="text-left p-3">Storage</th>
+            </tr>
+          </thead>
+          <tbody id="allTbody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conflicts -->
+  <div id="conflictsWrap" class="w-full max-w-5xl px-4 mt-5 hidden">
+    <div class="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="p-3 border-b border-slate-800 text-sm text-slate-300">
+        Currently flags: <span class="font-semibold text-slate-100">Unassigned wines</span>.
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-800/60 text-slate-200">
+            <tr>
+              <th class="text-left p-3">Type</th>
+              <th class="text-left p-3">Details</th>
+              <th class="text-left p-3">Count</th>
+            </tr>
+          </thead>
+          <tbody id="conflictsTbody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalWrap" class="fixed inset-0 hidden z-50">
+    <div class="absolute inset-0 bg-black/60" id="modalBackdrop"></div>
+
+    <div id="modalSheet" class="absolute bottom-0 left-0 right-0 bg-slate-950 border border-slate-800 rounded-t-2xl p-5 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="modalTitle" class="text-xl font-black"></h2>
+          <p id="modalMeta" class="text-slate-400"></p>
+          <div id="dirtyBadge" class="hidden mt-2 inline-flex text-xs pill-warn px-2 py-1 rounded-full">Unsaved changes</div>
+        </div>
+        <button id="closeModalBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg text-sm">
+          Close
+        </button>
+      </div>
+      
+      <!-- Edit wine info -->
+      <div class="mt-4 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+        <div class="text-sm font-semibold text-slate-200">Wine Info</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+          <input id="editName" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm" placeholder="Wine name"/>
+          <input id="editProducer" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm" placeholder="Producer"/>
+          <input id="editVintage" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm" placeholder="Vintage"/>
+        </div>
+      </div>
+
+      <!-- Storage pills -->
+      <div class="mt-4 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+        <div class="text-sm font-semibold text-slate-200">Storage Locations (tap to remove)</div>
+        <div id="storagePills" class="flex flex-wrap gap-3 mt-3"></div>
+
+        <div class="mt-4 border-t border-slate-800 pt-4">
+          <div class="text-sm font-semibold text-slate-200 mb-2">Add a location</div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select id="zoneSelect" class="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg"></select>
+            <select id="subzoneSelect" class="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg hidden"></select>
+            <div id="slotContainer" class="w-full"></div>
+          </div>
+
+          <button id="addLocationBtn"
+            class="mt-3 w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold hidden">
+            Add Location
+          </button>
+
+          <p class="text-xs text-slate-500 mt-2">
+            You can save with no locations to flag as Unassigned (Conflicts tab).
+          </p>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="mt-4 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+        <div class="text-sm font-semibold text-slate-200">Notes</div>
+        <textarea id="notesInput"
+          class="mt-2 w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm min-h-[110px]"
+          placeholder="Tasting notes, pairing notes, reminders…"></textarea>
+      </div>
+
+      <!-- Tech sheet -->
+      <div class="mt-4 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+        <div class="text-sm font-semibold text-slate-200">Tech Sheet</div>
+        <input id="techSheetInput" placeholder="Paste link to tech sheet PDF..."
+          class="mt-2 w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm"/>
+        <div id="techSheetLinkWrap" class="mt-2 text-sm"></div>
+      </div>
+
+      <!-- Label -->
+      <div class="mt-4 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+        <div class="flex items-center justify-between">
+          <div class="text-sm font-semibold text-slate-200">Label Photo</div>
+          <button id="uploadLabelBtn" class="text-sm bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg font-semibold">
+            Upload
+          </button>
+        </div>
+        <div id="labelPreviewWrap" class="mt-3">
+          <div class="text-xs text-slate-500">No label uploaded yet.</div>
+        </div>
+        <input id="labelFileInput" type="file" accept="image/*" capture="environment" class="hidden" />
+      </div>
+
+      <!-- Save / Discard -->
+      <div class="mt-4 flex gap-2">
+        <button id="saveAllBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black">
+          Save Changes
+        </button>
+        <button id="discardBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 py-3 rounded-lg font-semibold">
+          Discard
+        </button>
+      </div>
+
+      <!-- Danger -->
+      <div class="mt-4 bg-slate-900/60 border border-red-900/40 rounded-xl p-3">
+        <div class="text-sm font-semibold text-red-300">Danger Zone</div>
+        <button id="deleteBtn" class="mt-2 bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-sm font-black">
+          Delete SKU
+        </button>
+        <p class="text-xs text-slate-500 mt-2">Requires confirmation (“type DELETE”).</p>
+      </div>
+
+      <div class="h-2"></div>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   CONFIG
+========================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbxvd7bJ1A8fZeD_FybMHK4O8hUeqDo370N-wgRZte3u6DoD2d72KTZlRH2oPalb739D/exec";
+
+/* =========================
+   STATE
+========================= */
+let wines = [];
+let storageDefs = [];
+
+let activeWine = null;
+let originalSnapshot = null;
+let originalStorage = [];
+let draftStorage = [];
+
+/* =========================
+   DOM helpers
+========================= */
+const qs = (id) => document.getElementById(id);
+const norm = (s) => (s || "").toString().trim();
+function safe(s){
+  return (s || "").toString()
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+function splitStorage(str){ return norm(str) ? str.split("|").map(x => x.trim()).filter(Boolean) : []; }
+function joinStorage(arr){ return arr.map(x => x.trim()).filter(Boolean).join(" | "); }
+
+function pillClass(loc){
+  const l = (loc || "").toLowerCase();
+  if (l.includes("fridge")) return "pill-fridge";
+  if (l.includes("divider") || l.includes("rack") || l.includes("row")) return "pill-rack";
+  return "pill-custom";
+}
+function setDirty(on){ qs("dirtyBadge").classList.toggle("hidden", !on); }
+
+/* =========================
+   API (CORS-safe POST)
+========================= */
+async function apiGet() {
+  const res = await fetch(API_URL, { cache: "no-store" });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error("API GET did not return JSON:\n" + text.slice(0, 200)); }
+  if (!res.ok) throw new Error(`GET failed (${res.status})`);
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids preflight
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error("API POST did not return JSON:\n" + text.slice(0, 200)); }
+  if (!res.ok) throw new Error(`POST failed (${res.status})`);
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+/* =========================
+   LOAD DATA
+========================= */
+async function loadData() {
+  const data = await apiGet();
+  wines = Array.isArray(data.wines) ? data.wines : [];
+  storageDefs = Array.isArray(data.storage) ? data.storage : [];
+
+  // filter out any accidental blank rows
+  wines = wines.filter(w => norm(w.name) || norm(w.producer));
+}
+
+loadData()
+  .then(() => {
+    // Search tab starts empty until typing (no render needed)
+  })
+  .catch(e => alert("Unable to load wines:\n" + e.message));
+
+/* =========================
+   Tabs
+========================= */
+const tabSearch = qs("tabSearch");
+const tabAll = qs("tabAll");
+const tabConf = qs("tabConflicts");
+
+const searchBarWrap = qs("searchBarWrap");
+const searchResults = qs("searchResults");
+const allWrap = qs("allWrap");
+const confWrap = qs("conflictsWrap");
+
+function setTab(which){
+  [tabSearch, tabAll, tabConf].forEach(b => b.classList.remove("tab-active"));
+  searchBarWrap.classList.add("hidden");
+  searchResults.classList.add("hidden");
+  allWrap.classList.add("hidden");
+  confWrap.classList.add("hidden");
+
+  if(which === "search"){
+    tabSearch.classList.add("tab-active");
+    searchBarWrap.classList.remove("hidden");
+    searchResults.classList.remove("hidden");
+  }
+  if(which === "all"){
+    tabAll.classList.add("tab-active");
+    allWrap.classList.remove("hidden");
+    renderAll(); // ✅ immediate populate
+  }
+  if(which === "conf"){
+    tabConf.classList.add("tab-active");
+    confWrap.classList.remove("hidden");
+    renderConflicts();
+  }
+}
+tabSearch.onclick = () => setTab("search");
+tabAll.onclick = () => setTab("all");
+tabConf.onclick = () => setTab("conf");
+setTab("search");
+
+/* =========================
+   Search
+========================= */
+qs("searchInput").addEventListener("input", () => {
+  const q = norm(qs("searchInput").value).toLowerCase();
+  searchResults.innerHTML = "";
+  if(!q) return;
+
+  wines
+    .filter(w =>
+      (w.name || "").toLowerCase().includes(q) ||
+      (w.producer || "").toLowerCase().includes(q)
+    )
+    .slice(0, 120)
+    .forEach(w => searchResults.appendChild(buildCard(w)));
+});
+
+function buildCard(w){
+  const card = document.createElement("div");
+  card.className = "bg-slate-900/60 border border-slate-700 rounded-xl p-4 cursor-pointer active:scale-[0.99] transition";
+  card.onmouseenter = () => card.classList.add("md:scale-[1.01]");
+  card.onmouseleave = () => card.classList.remove("md:scale-[1.01]");
+  card.onclick = () => openModal(w);
+
+  const storageArr = splitStorage(w.storage);
+  const pillsHTML = storageArr.length
+    ? storageArr.map(loc => `<span class="pill ${pillClass(loc)} text-base md:text-xl">${safe(loc)}</span>`).join("")
+    : `<span class="pill pill-warn text-base md:text-xl">Unassigned</span>`;
+
+  card.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="text-sm text-slate-400 font-semibold">${safe(w.producer || "")}</div>
+        <div class="text-lg md:text-xl font-black leading-tight">${safe(w.name || "Unnamed")}</div>
+        <div class="text-sm text-slate-500 mt-0.5">${safe(w.vintage || "")}</div>
+      </div>
+      <div class="text-xs text-slate-500">${storageArr.length ? storageArr.length + " loc" : ""}</div>
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3">${pillsHTML}</div>
+  `;
+  return card;
+}
+
+/* =========================
+   Challenge + Add Wine
+========================= */
+qs("challengeBtn").onclick = () => {
+  if(!wines.length) return;
+  const w = wines[Math.floor(Math.random() * wines.length)];
+  setTab("search");
+  qs("searchInput").value = w.name || w.producer || "";
+  qs("searchInput").dispatchEvent(new Event("input"));
+  setTimeout(() => openModal(w), 120);
+};
+
+qs("addWineBtn").onclick = () => openModal({
+  id: null,
+  name: "",
+  producer: "",
+  vintage: "",
+  storage: "",
+  labelImageUrl: "",
+  techSheetUrl: "",
+  notes: ""
+}, true);
+
+/* =========================
+   All Wines
+========================= */
+const allTbody = qs("allTbody");
+
+function renderAll(){
+  allTbody.innerHTML = wines.map(w => {
+    const arr = splitStorage(w.storage);
+    const storageCell = arr.length
+      ? arr.slice(0,2).map(loc => `<span class="pill ${pillClass(loc)} text-sm inline-block mr-2 mb-2">${safe(loc)}</span>`).join("")
+        + (arr.length > 2 ? `<span class="text-xs text-slate-400">+${arr.length - 2} more</span>` : "")
+      : `<span class="pill pill-warn text-sm">Unassigned</span>`;
+
+    return `
+      <tr class="hover:bg-slate-800/30 transition cursor-pointer" onclick="openModalById('${safe(w.id)}')">
+        <td class="p-3 font-semibold">${safe(w.name || "Unnamed")}</td>
+        <td class="p-3 text-slate-300">${safe(w.producer || "")}</td>
+        <td class="p-3 text-slate-300">${safe(w.vintage || "")}</td>
+        <td class="p-3">${storageCell}</td>
+      </tr>
+    `;
+  }).join("");
+}
+window.openModalById = (id) => {
+  const w = wines.find(x => x.id === id);
+  if (w) openModal(w);
+};
+
+/* =========================
+   Conflicts (unassigned)
+========================= */
+const confTbody = qs("conflictsTbody");
+
+function renderConflicts(){
+  const unassigned = wines.filter(w => splitStorage(w.storage).length === 0);
+  confTbody.innerHTML = `
+    <tr>
+      <td class="p-3 text-yellow-200 font-semibold">Unassigned</td>
+      <td class="p-3 text-slate-300">
+        ${
+          unassigned.length
+            ? unassigned.slice(0,10).map(w =>
+                `<div class="underline cursor-pointer" onclick="openModalById('${safe(w.id)}')">${safe(w.producer)} — ${safe(w.name)} ${w.vintage ? "(" + safe(w.vintage) + ")" : ""}</div>`
+              ).join("")
+            : `<span class="text-slate-400">None 🎉</span>`
+        }
+        ${unassigned.length > 10 ? `<div class="text-xs text-slate-400 mt-2">+${unassigned.length - 10} more</div>` : ""}
+      </td>
+      <td class="p-3 text-slate-200 font-black">${unassigned.length}</td>
+    </tr>
+  `;
+}
+
+/* =========================
+   Modal open/close + dirty tracking
+========================= */
+const modalWrap = qs("modalWrap");
+
+qs("closeModalBtn").onclick = () => requestCloseModal();
+qs("modalBackdrop").onclick = () => requestCloseModal();
+qs("discardBtn").onclick = () => closeModal(true);
+
+function openModal(w, isNew=false){
+  activeWine = { ...w, __isNew: !!isNew };
+
+  originalStorage = splitStorage(activeWine.storage);
+  draftStorage = [...originalStorage];
+
+  qs("modalTitle").textContent = activeWine.name || (isNew ? "New Wine" : "Unnamed");
+  qs("modalMeta").textContent = `${activeWine.producer || ""}${activeWine.vintage ? " • " + activeWine.vintage : ""}`;
+
+  qs("editName").value = activeWine.name || "";
+  qs("editProducer").value = activeWine.producer || "";
+  qs("editVintage").value = activeWine.vintage || "";
+
+  qs("notesInput").value = activeWine.notes || "";
+  qs("techSheetInput").value = activeWine.techSheetUrl || "";
+
+  originalSnapshot = takeSnapshot_();
+
+  setDirty(false);
+  renderDraftPills();
+  buildZoneSelector();
+  renderTechLink();
+  renderLabelPreview();
+
+  qs("deleteBtn").style.display = isNew ? "none" : "inline-block";
+
+  // attach listeners once per open (safe)
+  wireDirtyListeners_();
+
+  modalWrap.classList.remove("hidden");
+  setTimeout(()=>modalWrap.classList.add("show"), 10);
+}
+
+function closeModal(discard){
+  if(discard){
+    activeWine = null;
+    originalSnapshot = null;
+    originalStorage = [];
+    draftStorage = [];
+  }
+  modalWrap.classList.remove("show");
+  setTimeout(()=>modalWrap.classList.add("hidden"), 220);
+}
+
+function isDirty_(){
+  if(!activeWine || !originalSnapshot) return false;
+  const now = takeSnapshot_();
+  return JSON.stringify(now) !== JSON.stringify(originalSnapshot);
+}
+
+function takeSnapshot_(){
+  return {
+    name: norm(qs("editName")?.value),
+    producer: norm(qs("editProducer")?.value),
+    vintage: norm(qs("editVintage")?.value),
+    techSheetUrl: norm(qs("techSheetInput")?.value),
+    notes: (qs("notesInput")?.value || ""),
+    storage: joinStorage(draftStorage),
+    // label image is saved during upload; not part of "dirty" for save-all
+  };
+}
+
+let dirtyWired = false;
+function wireDirtyListeners_(){
+  if(dirtyWired) return;
+  dirtyWired = true;
+
+  const watch = ["editName","editProducer","editVintage","techSheetInput","notesInput"];
+  watch.forEach(id => {
+    qs(id).addEventListener("input", () => setDirty(isDirty_()));
+  });
+}
+
+function requestCloseModal(){
+  if(!activeWine) return closeModal(true);
+
+  if(!isDirty_()){
+    closeModal(true);
+    return;
+  }
+
+  const choice = prompt("You have unsaved changes.\nType:\nS = Save\nD = Discard\nC = Cancel", "C");
+  const c = (choice || "").trim().toUpperCase();
+
+  if(c === "S"){
+    saveAllChanges();
+    return;
+  }
+  if(c === "D"){
+    closeModal(true);
+    return;
+  }
+  // Cancel: do nothing
+}
+
+/* =========================
+   Storage pills + selector
+========================= */
+function renderDraftPills(){
+  const wrap = qs("storagePills");
+  wrap.innerHTML = "";
+  if(!draftStorage.length){
+    wrap.innerHTML = `<span class="pill pill-warn text-base md:text-xl">Unassigned</span>`;
+    return;
+  }
+  draftStorage.forEach((loc, idx) => {
+    const b = document.createElement("button");
+    b.className = `pill ${pillClass(loc)} text-base md:text-xl`;
+    b.textContent = loc;
+    b.onclick = () => {
+      draftStorage.splice(idx, 1);
+      renderDraftPills();
+      setDirty(isDirty_());
+    };
+    wrap.appendChild(b);
+  });
+}
+
+const zoneSelect = qs("zoneSelect");
+const subzoneSelect = qs("subzoneSelect");
+const slotContainer = qs("slotContainer");
+const addLocationBtn = qs("addLocationBtn");
+
+function resetSelectorUI(){
+  zoneSelect.innerHTML = "";
+  subzoneSelect.innerHTML = "";
+  subzoneSelect.classList.add("hidden");
+  slotContainer.innerHTML = "";
+  addLocationBtn.classList.add("hidden");
+  addLocationBtn.onclick = null;
+}
+
+function buildZoneSelector(){
+  resetSelectorUI();
+  zoneSelect.innerHTML = `<option value="">Select Zone</option>`;
+  const zones = [...new Set(storageDefs.map(d => norm(d.Zone)).filter(Boolean))].sort();
+  zones.forEach(z => {
+    const opt = document.createElement("option");
+    opt.value = z; opt.textContent = z;
+    zoneSelect.appendChild(opt);
+  });
+
+  zoneSelect.onchange = () => buildSubzoneSelector(norm(zoneSelect.value));
+}
+
+function buildSubzoneSelector(zone){
+  subzoneSelect.classList.remove("hidden");
+  subzoneSelect.innerHTML = `<option value="">Select Subzone</option>`;
+
+  const subs = storageDefs
+    .filter(d => norm(d.Zone) === zone)
+    .map(d => norm(d.Subzone))
+    .filter(Boolean);
+
+  [...new Set(subs)].sort().forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = s;
+    subzoneSelect.appendChild(opt);
+  });
+
+  slotContainer.innerHTML = "";
+  addLocationBtn.classList.add("hidden");
+  subzoneSelect.onchange = () => buildSlotSelector(zone, norm(subzoneSelect.value));
+}
+
+function buildSlotSelector(zone, subzone){
+  slotContainer.innerHTML = "";
+  addLocationBtn.classList.add("hidden");
+
+  const def = storageDefs.find(d => norm(d.Zone) === zone && norm(d.Subzone) === subzone);
+  const slotType = norm(def?.SlotType);
+  const slotCountRaw = norm(def?.SlotCount);
+  const slotCount = slotCountRaw ? Number(slotCountRaw) : null;
+
+  // If no slotCount, show optional detail input
+  if(!slotCount){
+    slotContainer.innerHTML = `
+      <div class="text-xs text-slate-400 mb-2">Optional detail (Row #, Corner, Shelf note). Leave blank if not needed.</div>
+      <input id="slotInput" class="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-sm" placeholder="Optional detail..." />
+    `;
+    const slotInput = document.getElementById("slotInput");
+    addLocationBtn.classList.remove("hidden");
+    addLocationBtn.onclick = () => {
+      const detail = norm(slotInput.value);
+      const loc = detail ? `${zone} > ${subzone} > ${detail}` : `${zone} > ${subzone}`;
+      addDraftLoc(loc);
+      slotInput.value = "";
+    };
+    return;
+  }
+
+  // Slot buttons
+  const wrap = document.createElement("div");
+  wrap.className = "flex flex-wrap gap-2";
+
+  for(let i=1;i<=slotCount;i++){
+    const label = slotType ? `${slotType} ${i}` : `Slot ${i}`;
+    const b = document.createElement("button");
+    b.className = "bg-slate-900 border border-slate-700 hover:bg-slate-800 px-3 py-2 rounded-lg text-sm font-semibold";
+    b.textContent = label;
+    b.onclick = () => addDraftLoc(`${zone} > ${subzone} > ${label}`);
+    wrap.appendChild(b);
+  }
+  slotContainer.appendChild(wrap);
+}
+
+function addDraftLoc(loc){
+  loc = norm(loc);
+  if(!loc) return;
+  if(!draftStorage.includes(loc)){
+    draftStorage.push(loc);
+    renderDraftPills();
+    setDirty(isDirty_());
+  }
+}
+
+/* =========================
+   Save All (ONE button)
+========================= */
+qs("saveAllBtn").onclick = () => saveAllChanges();
+
+async function saveAllChanges(){
+  if(!activeWine) return;
+
+  const next = takeSnapshot_();
+
+  try {
+    // NEW wine -> addWine
+    if(activeWine.__isNew){
+      if(!next.name && !next.producer) {
+        alert("Add at least a Wine name or Producer.");
+        return;
+      }
+      await apiPost({
+        action: "addWine",
+        name: next.name,
+        producer: next.producer,
+        vintage: next.vintage,
+        storage: next.storage,
+        techSheetUrl: next.techSheetUrl,
+        notes: next.notes,
+        labelImageUrl: ""
+      });
+
+      await loadData();
+      qs("searchInput").dispatchEvent(new Event("input"));
+      renderAll();
+      if(!confWrap.classList.contains("hidden")) renderConflicts();
+      closeModal(true);
+      return;
+    }
+
+    // EXISTING wine: send only what changed
+    const changedInfo =
+      next.name !== originalSnapshot.name ||
+      next.producer !== originalSnapshot.producer ||
+      next.vintage !== originalSnapshot.vintage;
+
+    const changedMedia =
+      next.techSheetUrl !== originalSnapshot.techSheetUrl;
+
+    const changedNotes =
+      next.notes !== originalSnapshot.notes;
+
+    const changedStorage =
+      next.storage !== originalSnapshot.storage;
+
+    if(!changedInfo && !changedMedia && !changedNotes && !changedStorage){
+      closeModal(true);
+      return;
+    }
+
+    if(changedInfo){
+      await apiPost({
+        action:"updateWineInfo",
+        id: activeWine.id,
+        name: next.name,
+        producer: next.producer,
+        vintage: next.vintage
+      });
+    }
+
+    if(changedMedia){
+      await apiPost({
+        action:"updateMedia",
+        id: activeWine.id,
+        techSheetUrl: next.techSheetUrl,
+        labelImageUrl: activeWine.labelImageUrl || ""
+      });
+    }
+
+    if(changedNotes){
+      await apiPost({
+        action:"updateNotes",
+        id: activeWine.id,
+        notes: next.notes
+      });
+    }
+
+    if(changedStorage){
+      await apiPost({
+        action:"updateStorage",
+        id: activeWine.id,
+        storage: next.storage
+      });
+    }
+
+    // Refresh from source of truth
+    await loadData();
+    qs("searchInput").dispatchEvent(new Event("input"));
+    renderAll();
+    if(!confWrap.classList.contains("hidden")) renderConflicts();
+
+    closeModal(true);
+  } catch(e){
+    alert("Save failed:\n" + e.message);
+  }
+}
+
+/* =========================
+   Delete
+========================= */
+qs("deleteBtn").onclick = async () => {
+  if(!activeWine || activeWine.__isNew) return;
+
+  const msg = `${activeWine.producer || ""} — ${activeWine.name || ""} ${activeWine.vintage || ""}`.trim();
+  const ok = confirm(`Delete this SKU?\n\n${msg}\n\nThis cannot be undone.`);
+  if(!ok) return;
+
+  try {
+    await apiPost({ action:"deleteWine", id: activeWine.id });
+    await loadData();
+    qs("searchInput").dispatchEvent(new Event("input"));
+    renderAll();
+    if(!confWrap.classList.contains("hidden")) renderConflicts();
+    closeModal(true);
+  } catch(e){
+    alert("Delete failed:\n" + e.message);
+  }
+};
+
+
+/* =========================
+   Tech link render
+========================= */
+function renderTechLink(){
+  const wrap = qs("techSheetLinkWrap");
+  const url = norm(qs("techSheetInput").value);
+  wrap.innerHTML = url
+    ? `<a class="text-blue-300 underline" href="${safe(url)}" target="_blank">Open Tech Sheet</a>`
+    : `<span class="text-xs text-slate-500">No tech sheet link saved.</span>`;
+}
+qs("techSheetInput").addEventListener("input", renderTechLink);
+
+/* =========================
+   Label upload (separate)
+========================= */
+qs("uploadLabelBtn").onclick = () => qs("labelFileInput").click();
+
+qs("labelFileInput").addEventListener("change", async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if(!file || !activeWine) return;
+
+  if(activeWine.__isNew){
+    alert("Create the wine first (Save Changes), then upload the label.");
+    qs("labelFileInput").value = "";
+    return;
+  }
+
+  try{
+    const compressed = await compressImage(file, 1400, 0.78);
+
+    const out = await apiPost({
+      action:"uploadLabel",
+      id: activeWine.id,
+      filename: compressed.filename,
+      mimeType: compressed.mimeType,
+      base64: compressed.base64
+    });
+
+    activeWine.labelImageUrl = out.labelImageUrl || "";
+    renderLabelPreview();
+
+    // also refresh dataset so cards show the new label if you add it later
+    await loadData();
+    qs("searchInput").dispatchEvent(new Event("input"));
+    renderAll();
+  } catch(e){
+    alert("Upload failed:\n" + e.message);
+  } finally {
+    qs("labelFileInput").value = "";
+  }
+});
+
+function renderLabelPreview(){
+  const wrap = qs("labelPreviewWrap");
+  const url = norm(activeWine?.labelImageUrl);
+  wrap.innerHTML = url
+    ? `<a href="${safe(url)}" target="_blank" class="block">
+         <img src="${safe(url)}" class="mt-2 w-full max-h-72 object-contain rounded-lg border border-slate-800 bg-black/20" />
+         <div class="text-xs text-blue-300 underline mt-2">Open image</div>
+       </a>`
+    : `<div class="text-xs text-slate-500">No label uploaded yet.</div>`;
+}
+
+function compressImage(file, maxW, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("File read failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Image decode failed"));
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const mimeType = "image/jpeg";
+        const dataUrl = canvas.toDataURL(mimeType, quality);
+        const base64 = dataUrl.split(",")[1];
+
+        resolve({
+          base64,
+          mimeType,
+          filename: (file.name || "label").replace(/\.[^.]+$/, "") + ".jpg"
+        });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>
