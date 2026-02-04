@@ -68,13 +68,16 @@ function renderCards(wineArray) {
 
   wineArray.forEach(w => {
     const card = document.createElement('div');
-    card.className = `p-4 rounded shadow ${w.priority === 'Primary' ? 'bg-green-100' : 'bg-gray-200'}`;
-    card.innerHTML = `
-      <h2 class="font-bold">${w.name} (${w.vintage})</h2>
-      <p>${w.producer}</p>
-      <p class="italic">${w.zone} → ${w.subZone}</p>
-      <p>${w.notes}</p>
-    `;
+    card.className = `p-4 rounded-lg shadow-md border border-gray-200 ${
+  w.priority.toLowerCase() === 'primary' ? 'bg-green-50' : 'bg-gray-100'
+}`;
+card.innerHTML = `
+  <h2 class="font-semibold text-lg text-gray-800">${w.name} (${w.vintage})</h2>
+  <p class="text-gray-700">${w.producer}</p>
+  <p class="italic text-gray-600 text-sm">${w.zone} → ${w.subZone}</p>
+  <p class="text-gray-700 mt-1">${w.notes}</p>
+`;
+
     container.appendChild(card);
   });
 }
