@@ -38,20 +38,31 @@ return data.map(d => ({
     }
 
     function renderCards(wines) {
-      const container = document.getElementById('cards');
-      container.innerHTML = '';
-      wines.forEach(w => {
-        const card = document.createElement('div');
-        card.className = `p-4 rounded shadow ${w.priority === 'Primary' ? 'bg-green-100' : 'bg-gray-200'}`;
-        card.innerHTML = `
-          <h2 class="font-bold">${w.name} (${w.vintage})</h2>
-          <p>${w.producer}</p>
-          <p class="italic">${w.zone} → ${w.subZone}</p>
-          <p>${w.notes}</p>
-        `;
-        container.appendChild(card);
-      });
-    }
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+
+  if (wines.length === 0) {
+    // Display “No results found” if the array is empty
+    const msg = document.createElement('p');
+    msg.className = 'text-center text-gray-500 italic col-span-full';
+    msg.textContent = 'No wines found';
+    container.appendChild(msg);
+    return;
+  }
+
+  wines.forEach(w => {
+    const card = document.createElement('div');
+    card.className = `p-4 rounded shadow ${w.priority === 'Primary' ? 'bg-green-100' : 'bg-gray-200'}`;
+    card.innerHTML = `
+      <h2 class="font-bold">${w.name} (${w.vintage})</h2>
+      <p>${w.producer}</p>
+      <p class="italic">${w.zone} → ${w.subZone}</p>
+      <p>${w.notes}</p>
+    `;
+    container.appendChild(card);
+  });
+}
+
 
     async function init() {
       let wines = await loadData();
@@ -59,18 +70,19 @@ return data.map(d => ({
 
       // Search filter
       const searchInput = document.getElementById('search');
-      searchInput.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase.trim();
-        if (term === ''){
-          renderCards([]);
-          return;
-        }
-        const filtered = wines.filter(w => 
-          (wname && w.name.toLowerCase().includes(term))   ||
-           (w.producer && w.producer.toLowerCase().includes(term)     
-                                      );
-        renderCards(filtered);
-      });
+searchInput.addEventListener('input', e => {
+  const term = e.target.value.toLowerCase().trim();
+  if (term === '') {
+    renderCards([]); // show no cards
+    return;
+  }
+  const filtered = wines.filter(w => 
+    (w.name && w.name.toLowerCase().includes(term)) ||
+    (w.producer && w.producer.toLowerCase().includes(term))
+  );
+  renderCards(filtered);
+});
+
     }
 
     init();
