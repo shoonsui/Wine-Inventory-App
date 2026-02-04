@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+-3<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -62,7 +62,7 @@
 
   <!-- Row 2: Subtitle -->
   <div class="text-slate-400 text-center text-sm mt-1">
-    Less searching, more sipping.
+    Less searching, more sipping
   </div>
 
   <!-- Row 3: Tabs -->
@@ -280,6 +280,19 @@ let draftStorage = [];
    DOM helpers
 ========================= */
 const qs = (id) => document.getElementById(id);
+const tabSearch = qs("tabSearch");
+const tabAll = qs("tabAll");
+const tabConf = qs("tabConflicts");
+
+const zoneSelect = qs("zoneSelect");
+const subzoneSelect = qs("subzoneSelect");
+const slotContainer = qs("slotContainer");
+const addLocationBtn = qs("addLocationBtn");
+const searchBarWrap = qs("searchBarWrap");
+const searchResults = qs("searchResults");
+const allWrap = qs("allWrap");
+const confWrap = qs("conflictsWrap");
+
 const norm = (s) => (s || "").toString().trim();
 function safe(s){
   return (s || "").toString()
@@ -352,18 +365,6 @@ loadData()
 /* =========================
    Tabs
 ========================= */
-const tabSearch = qs("tabSearch");
-const tabAll = qs("tabAll");
-const tabConf = qs("tabConflicts");
-
-  const zoneSelect = qs("zoneSelect");
-const subzoneSelect = qs("subzoneSelect");
-const slotContainer = qs("slotContainer");
-const addLocationBtn = qs("addLocationBtn");
-const searchBarWrap = qs("searchBarWrap");
-const searchResults = qs("searchResults");
-const allWrap = qs("allWrap");
-const confWrap = qs("conflictsWrap");
 
 function setTab(which){
   [tabSearch, tabAll, tabConf].forEach(b => b.classList.remove("tab-active"));
