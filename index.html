@@ -55,13 +55,20 @@ return data.map(d => ({
 
     async function init() {
       let wines = await loadData();
-      renderCards(wines);
+      
 
       // Search filter
       const searchInput = document.getElementById('search');
       searchInput.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase();
-        const filtered = wines.filter(w => w.name.toLowerCase().includes(term));
+        const term = e.target.value.toLowerCase.trim();
+        if (term === ''){
+          renderCards([]);
+          return;
+        }
+        const filtered = wines.filter(w => 
+          (wname && w.name.toLowerCase().includes(term))   ||
+           (w.producer && w.producer.toLowerCase().includes(term)     
+                                      );
         renderCards(filtered);
       });
     }
