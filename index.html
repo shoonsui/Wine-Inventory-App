@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wine Inventory</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4">
+  <h1 class="text-2xl font-bold mb-4">Wine Inventory</h1>
+
+  <!-- Search bar -->
+  <input id="search" type="text" placeholder="Search by Wine Name" class="border p-2 w-full mb-4 rounded">
+
+  <!-- Container for wine cards -->
+  <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+  <script>
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-A6rGvaoyKbrYLSUha23bLWcucC4VnT9DW5YF2OuedUJBuQpGpjZ2r6rjY0bl8Q/pub?output=csv';
+
+    async function loadData() {
+      const res = await fetch(sheetUrl);
+      const text = await res.text();
+      const rows = text.split('\\n').slice(1); // skip header
+      const data = rows.map(r => r.split(','));
+      return data.map(d => ({
+        name: d[0],
+        producer: d[1],
+        vintage: d[2],
+        zone: d[3],
+        subZone: d[4],
+        priority: d[5],
+        notes: d[6]
+      }));
+    }
+
+    function renderCards(wines) {
+      const container = document.getElementById('cards');
+      container.innerHTML = '';
+      wines.forEach(w => {
+        const card = document.createElement('div');
+        card.className = `p-4 rounded shadow ${w.priority === 'Primary' ? 'bg-green-100' : 'bg-gray-200'}`;
+        card.innerHTML = `
+          <h2 class="font-bold">${w.name} (${w.vintage})</h2>
+          <p>${w.producer}</p>
+          <p class="italic">${w.zone} → ${w.subZone}</p>
+          <p>${w.notes}</p>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function init() {
+      let wines = await loadData();
+      renderCards(wines);
+
+      // Search filter
+      const searchInput = document.getElementById('search');
+      searchInput.addEventListener('input', e => {
+        const term = e.target.value.toLowerCase();
+        const filtered = wines.filter(w => w.name.toLowerCase().includes(term));
+        renderCards(filtered);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
