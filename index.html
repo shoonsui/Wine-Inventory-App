@@ -48,10 +48,19 @@
 
   <div class="w-full max-w-3xl px-4 pt-6">
     <div class="flex items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-black tracking-tight">Porters Wine Storage</h1>
-        <p class="text-slate-400 text-sm mt-0.5">All in One Storage Solution</p>
-      </div>
+      <button id="homeBtn" class="text-left group">
+  <div class="flex items-center gap-2">
+    <img
+      src="logo.png"
+      alt="Home"
+      class="w-10 h-10 rounded xl object-contain border border-slate-600 bg-slate-900 p-1
+             group-hover:opacity-90 transition"
+    />
+      <div class="text-2xl font-black tracking-tight group-hover:opacity-90">Wine Storage Solution</div>
+      <div class="text-slate-400 text-sm mt-0.5">Less time searching, more time drinking.</div>
+    </div>
+  </div>
+</button>
 
       <div class="flex items-center gap-2">
         <button id="addWineBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg text-sm font-semibold">
@@ -81,6 +90,20 @@
 
   <!-- All wines table -->
   <div id="allWrap" class="w-full max-w-5xl px-4 mt-5 hidden">
+    <div class="mb-3 flex flex-col md:flex-row gap-2">
+  <input id="allFilterInput"
+    placeholder="Filter all wines (name or producer)..."
+    class="flex-1 p-3 rounded-lg bg-slate-900/70 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+  <select id="allSortSelect"
+    class="md:w-56 p-3 rounded-lg bg-slate-900/70 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <option value="name_asc">Sort: Name (A→Z)</option>
+    <option value="producer_asc">Sort: Producer (A→Z)</option>
+    <option value="vintage_desc">Sort: Vintage (new→old)</option>
+    <option value="storage_desc">Sort: Assigned first</option>
+  </select>
+</div>
+
     <div class="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
@@ -260,6 +283,10 @@ function pillClass(loc){
   return "pill-custom";
 }
 function setDirty(on){ qs("dirtyBadge").classList.toggle("hidden", !on); }
+const allFilterInput = document.getElementById("allFilterInput");
+const allSortSelect = document.getElementById("allSortSelect");
+allFilterInput?.addEventListener("input", () => renderAll());
+allSortSelect?.addEventListener("change", () => renderAll());
 
 /* =========================
    API (CORS-safe POST)
@@ -421,7 +448,34 @@ qs("addWineBtn").onclick = () => openModal({
 const allTbody = qs("allTbody");
 
 function renderAll(){
-  allTbody.innerHTML = wines.map(w => {
+  const q = norm(allFilterInput?.value).toLowerCase();
+  const sortMode = allSortSelect?.value || "name_asc";
+
+  let list = [...wines];
+
+  // Filter
+  if(q){
+    list = list.filter(w =>
+      (w.name || "").toLowerCase().includes(q) ||
+      (w.producer || "").toLowerCase().includes(q)
+    );
+  }
+
+  // Sort helpers
+  const byText = (a,b,field) => (norm(a[field]).toLowerCase()).localeCompare(norm(b[field]).toLowerCase());
+  const toVintageNum = (v) => {
+    const n = parseInt((v||"").toString().match(/\d{4}/)?.[0] || "0", 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const hasStorage = (w) => splitStorage(w.storage).length > 0;
+
+  // Sort
+  if(sortMode === "name_asc") list.sort((a,b) => byText(a,b,"name"));
+  if(sortMode === "producer_asc") list.sort((a,b) => byText(a,b,"producer"));
+  if(sortMode === "vintage_desc") list.sort((a,b) => toVintageNum(b.vintage) - toVintageNum(a.vintage));
+  if(sortMode === "storage_desc") list.sort((a,b) => (hasStorage(b) - hasStorage(a)) || byText(a,b,"producer") || byText(a,b,"name"));
+
+  allTbody.innerHTML = list.map(w => {
     const arr = splitStorage(w.storage);
     const storageCell = arr.length
       ? arr.slice(0,2).map(loc => `<span class="pill ${pillClass(loc)} text-sm inline-block mr-2 mb-2">${safe(loc)}</span>`).join("")
@@ -572,6 +626,12 @@ function requestCloseModal(){
   // Cancel: do nothing
 }
 
+  qs("homeBtn").onclick = () => {
+  setTab("search");
+  qs("searchInput").value = "";
+  searchResults.innerHTML = ""; // clears cards
+  qs("searchInput").focus();
+};
 /* =========================
    Storage pills + selector
 ========================= */
