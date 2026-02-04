@@ -16,33 +16,35 @@
   <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
   <script>
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-A6rGvaoyKbrYLSUha23bLWcucC4VnT9DW5YF2OuedUJBuQpGpjZ2r6rjY0bl8Q/pub?output=csv';
+   <script>
+const sheetUrl = 'YOUR_PUBLISHED_CSV_URL_HERE'; // replace with your CSV URL
 
-    async function loadData() {
-      const res = await fetch(sheetUrl);
-      const text = await res.text();
-      const rows = text.split('\n').slice(1); // skip header
-const data = rows
-  .map(r => r.split(','))
-  .filter(d => d[0] && d[0].trim() !== ''); // only rows with a Wine Name
-return data.map(d => ({
-  name: d[0],
-  producer: d[1],
-  vintage: d[2],
-  zone: d[3],
-  subZone: d[4],
-  priority: d[5],
-  notes: d[6]
-}));
+let wines = []; // store all wine data globally
 
-    }
+async function loadData() {
+  const res = await fetch(sheetUrl);
+  const text = await res.text();
+  const rows = text.split('\n').slice(1); // skip header
+  wines = rows
+    .map(r => r.split(','))
+    .filter(d => d[0] && d[0].trim() !== '') // only rows with Wine Name
+    .map(d => ({
+      name: d[0],
+      producer: d[1],
+      vintage: d[2],
+      zone: d[3],
+      subZone: d[4],
+      priority: d[5],
+      notes: d[6]
+    }));
+  // Do NOT render all cards on page load
+}
 
-    function renderCards(wines) {
+function renderCards(wineArray) {
   const container = document.getElementById('cards');
   container.innerHTML = '';
 
-  if (wines.length === 0) {
-    // Display “No results found” if the array is empty
+  if (!wineArray || wineArray.length === 0) {
     const msg = document.createElement('p');
     msg.className = 'text-center text-gray-500 italic col-span-full';
     msg.textContent = 'No wines found';
@@ -50,7 +52,7 @@ return data.map(d => ({
     return;
   }
 
-  wines.forEach(w => {
+  wineArray.forEach(w => {
     const card = document.createElement('div');
     card.className = `p-4 rounded shadow ${w.priority === 'Primary' ? 'bg-green-100' : 'bg-gray-200'}`;
     card.innerHTML = `
@@ -63,29 +65,32 @@ return data.map(d => ({
   });
 }
 
+function setupSearch() {
+  const searchInput = document.getElementById('search');
+  searchInput.addEventListener('input', e => {
+    const term = e.target.value.toLowerCase().trim();
 
-    async function init() {
-      let wines = await loadData();
-      
-
-      // Search filter
-      const searchInput = document.getElementById('search');
-searchInput.addEventListener('input', e => {
-  const term = e.target.value.toLowerCase().trim();
-  if (term === '') {
-    renderCards([]); // show no cards
-    return;
-  }
-  const filtered = wines.filter(w => 
-    (w.name && w.name.toLowerCase().includes(term)) ||
-    (w.producer && w.producer.toLowerCase().includes(term))
-  );
-  renderCards(filtered);
-});
-
+    if (term === '') {
+      renderCards([]); // blank if search is empty
+      return;
     }
 
-    init();
-  </script>
+    const filtered = wines.filter(w =>
+      (w.name && w.name.toLowerCase().includes(term)) ||
+      (w.producer && w.producer.toLowerCase().includes(term))
+    );
+
+    renderCards(filtered);
+  });
+}
+
+// initialize
+async function init() {
+  await loadData();
+  setupSearch();
+}
+
+init();
+</script>
 </body>
 </html>
