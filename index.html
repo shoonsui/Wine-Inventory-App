@@ -21,17 +21,20 @@
     async function loadData() {
       const res = await fetch(sheetUrl);
       const text = await res.text();
-      const rows = text.split('\\n').slice(1); // skip header
-      const data = rows.map(r => r.split(','));
-      return data.map(d => ({
-        name: d[0],
-        producer: d[1],
-        vintage: d[2],
-        zone: d[3],
-        subZone: d[4],
-        priority: d[5],
-        notes: d[6]
-      }));
+      const rows = text.split('\n').slice(1); // skip header
+const data = rows
+  .map(r => r.split(','))
+  .filter(d => d[0] && d[0].trim() !== ''); // only rows with a Wine Name
+return data.map(d => ({
+  name: d[0],
+  producer: d[1],
+  vintage: d[2],
+  zone: d[3],
+  subZone: d[4],
+  priority: d[5],
+  notes: d[6]
+}));
+
     }
 
     function renderCards(wines) {
